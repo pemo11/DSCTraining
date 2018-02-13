@@ -1,35 +1,39 @@
-﻿
-configuration UserGroupAnlegen
+﻿<#
+ .Synopsis
+ Creating two local user accounts and add them to a newly created local group
+ .Notes 
+ The password is set with a PSCredential object and is stored as plain text in the mof file
+#>
+
+configuration UserGroupEx1
 {
-    param([String[]]$Computername, [PSCredential]$UserPwCred)
+   Import-DSCResource -ModuleName PSDesiredStateConfiguration
 
-    Import-DSCResource -ModuleName PSDesiredStateConfiguration
-
-    Node $Computername
+    Node $AllNodes.NodeName
     {
         User User1
         {
-            Ensure = "Absent"
-            UserName = "PsUser1"
-            FullName = "Peter Monadjemi 1"
+            Ensure = "Present"
+            UserName = $Node.Username1
+            FullName = $Node.Fullname1
             PasswordNeverExpires = $true
-            Password = $UserPwCred
+            Password = $Node.Credential
         }
 
         User User2
         {
             Ensure = "Present"
-            UserName = "PsUser2"
-            FullName = "Peter Monadjemi 2"
+            UserName = $Node.Username2
+            FullName = $Node.Fullname2
             PasswordNeverExpires = $true
-            Password = $UserPwCred
+            Password = $Node.Credential
         }
 
         Group Group1
         {
-            Ensure="Absent"
-            GroupName="PsUser"
-            Members = "PemoUser1", "PemoUser2"
+            Ensure="Present"
+            GroupName=$Node.GroupName1
+            Members = $Node.Username1, $Node.Username2
             DependsOn = "[User]User2"
         }
     }
@@ -37,26 +41,24 @@ configuration UserGroupAnlegen
 
 
 $PwSec = "demo+123" | ConvertTo-SecureString -AsPlainText -Force
-$UserPwCred = [PSCredential]::New("Dummy", $PwSec)
-
-del DSCTest -Force -recurse -ErrorAction Ignore
+$PSCred = [PSCredential]::New("DummyUser", $PwSec)
 
 $ConfigData = @{
 
     AllNodes = @(
 	    @{
-            # NodeName darf kein * sein
-            NodeName = "Win7B"
+            NodeName = "localhost"
+            Username1 = "PSUser1"
+            Username2 = "PSUser2"
+            FullName1 = "The first PSUser"
+            FullName2 = "The second PSUser"
+            GroupName1 = "PSUser"
+            Credential = $PSCred
 		    PSDscAllowPlainTextPassword=$true
         }
 	)
 }
 
-DSCTest -Computername Win7B -UserPwCred $UserPwCred -ConfigurationData $ConfigData
+UserGroupEx1 -ConfigurationData $ConfigData
 
-$Username = "Pemo7"
-$PwSec = "demo+123" | ConvertTo-SecureString -AsPlainText -Force
-$Cred = [PSCredential]::new($Username, $PwSec)
-
-
-Start-DscConfiguration -Path .\DSCTest -Verbose -Wait -Credential $Cred
+Start-DscConfiguration -Path .\UserGroupEx1 -Verbose -Wait 

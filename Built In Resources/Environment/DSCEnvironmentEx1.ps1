@@ -1,13 +1,13 @@
 <#
  .Synopsis
- Umgebungsvariable anlegen
+ Example for the environment resource
  .Description
- Es wird immer eine System-Variable angelegt
- Wichtig: Damit die Änderung beim Start der PowerShell übernommen wird,
- muss eventuell Explorer neu gestartet werden!
+ Adding a path to the path system environment variable
+ .Notes
+ Restarting the explorer can be necessary
 #>
 
-configuration EnvTest
+configuration EnvironmentEx1
 {
     param([String]$Computername)
 
@@ -15,36 +15,29 @@ configuration EnvTest
 
     node $Computername
     {
-        File Dir1
+        # Create a new directory
+        File PoshDir
         {
             Ensure = "Present"
-            DestinationPath = "C:\PsTools"
+            DestinationPath = "C:\PoshTools"
             Type = "Directory"
         }
 
-        File File1
-        {
-            Ensure = "Present"
-            SourcePath = "F:\Tools\Smtp4Dev.exe"
-            DestinationPath = "C:\PsTools\Smtp4Dev2.exe"
-            Type = "File"
-            DependsOn = "[File]Dir1"
-        }
-
-        Environment Env1
+        # extend the path environment variable
+        Environment Add2Path
         {
             Ensure = "Present"
             Name = "Path"
             Path = $true
-            Value = "C:\PsTools"
-            DependsOn = "[File]Dir1"
+            Value = "C:\PoshTools"
+            DependsOn = "[File]PoshDir"
         }
     }
 }
 
 cd $PSScriptRoot
 
-EnvTest -Computername Localhost
+EnvironmentEx1 -Computername Localhost
 
-Start-DSCConfiguration -Path EnvTest -Wait -Verbose -Force
+Start-DSCConfiguration -Path .\EnvironmentEx1 -Wait -Verbose -Force
 

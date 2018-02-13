@@ -1,46 +1,38 @@
 <#
  .Synopsis
- Ein Beispiel fuer die Script-Ressource
+ Download a file with wget and the script resource
 #>
 
-configuration ScriptBeispiel
+configuration ScriptDownloadEx1
 {
     Import-DSCResource -ModuleName PSDesiredStateConfiguration
 
     node $AllNodes.NodeName
     {
-        Script DownloadZip
+        $TmpFilePath = Join-Path -Path C:\Temp -ChildPath (Split-Path -Path $Node.DownloadUrl -Leaf)
+
+        Script DownloadFile
         {
-            # muss $false zurueckgegeben
-            # $env:temp geht nicht
+            # has to return false otherwise no action is taken that is set is not called
             TestScript = {
-                            $LocalFile = $using:Node.LocalFile
-                            Test-Path -Path C:\Temp\$LocalFile
+                            Test-Path -Path $using:TmpFilePath
                          }
 
-            # Rueckgabewert muss Hashtable sein - Result spielt keine Rolle
+            # return value does not matter - just has to be a hashtable
             GetScript = {
                 @{Result = $true}
             }
 
             SetScript = {
-              # Geht nicht
-              # $Url = $Node.Url
-              $Url = $using:Node.Url
-              $LocalPath = "C:\Temp"
-              Write-Verbose "*** Downloading $Url nach $LocalPath ***"
-              if (!(Test-Path -Path $LocalPath))
-              {
-                  md $LocalPath | Out-Null
-              }
-              try
-              {
-                $WC = New-Object -TypeName System.Net.WebClient
-                $WC.DownloadFile($Url, "$LocalPath\$($using:Node.Localfile)")
+                $Url = $using:Node.DownloadUrl
+                Write-Verbose "*** Downloading $Url nach $using:TmpFilePath ***"
+                try
+                {
+                    Invoke-WebRequest -uri $Url -OutFile $using:TmpFilePath
               }
               catch
               {
-                Write-Verbose "Fehler beim Download: $_"
+                    Write-Verbose "Error downloading $Url ($_)"
               }  
             }
         }
@@ -48,20 +40,22 @@ configuration ScriptBeispiel
 }
 
 $ConfigData = @{
+
     AllNodes = @(
         @{
-            NodeName = "Server1A"
-            Url = "http://www.activetraining.de/Downloads/Ps1Skripte.zip"
-            LocalFile = "PoshSkripte123.zip"
+            NodeName = "localhost"
+            DownloadUrl = "http://www.activetraining.de/Downloads/Ps1Skripte.zip"
         }
     )
 }
 
-cd $PSScriptRoot
+# cd $PSScriptRoot
 
-ScriptBeispiel -ConfigurationData $ConfigData
+ScriptDownloadEx1 -ConfigurationData $ConfigData
 
 $PwSec = "demo+123" | ConvertTo-SecureString -AsPlainText -Force
-$Server1ACred = [PSCredential]::new("Administrator", $PwSec)
+$PSCred = [PSCredential]::new("Administrator", $PwSec)
 
-Start-DSCConfiguration -Path ScriptBeispiel -Wait -Verbose -Credential $Server1ACred -Force
+Start-DSCConfiguration -Path .\ScriptDownloadEx1 -Wait -Verbose -Force # -Credential $PSCred -Force
+
+dir C:\temp\*.zip

@@ -1,47 +1,59 @@
 <#
  .Synopsis
- Beispiel für die Script-Ressource
+ Map a smb share with a drive letter with the help of the script resources
  .Description
- Es war ein ganz schönes "Gefrimel" bis das Einsetzen der Node-Eigenschaft DriveName endlich funktioniert hat
+ It was a lot of nitty gritty details to consider for being able to finaly use the Drivename property
+ in combination with the node variable
+ It works with scriptblocks and using local variables in conjunction with node:
+ Its not possible to use $node:property within set, test or get
+ the script resource is not very good
 #>
 
-configuration ScriptBeispiel
+configuration MapDriveWithScriptEx1
 {
     Import-DSCResource -ModuleName PSDesiredStateConfiguration
 
     node $AllNodes.NodeName
     {
+
+        $Cred = $Node.Credential
+        $Username = $Cred.Username
+        $Password = $Cred.GetNetworkCredential().Password
+        $DriveName = $Node.DriveName
+        $RemotePath = $Node.RemotePath
+
         Script MapShare1
         {
-            # Muss $false ergeben, damit SetScript ausgeführt wird
-            TestScript = "(Get-PSDrive -Name $($Node.DriveName) -ErrorAction Ignore) -ne `$null"
+            # if return value is $false set action will be taken
+            TestScript = {
+                (Get-PSDrive -Name $using:DriveName -ErrorAction Ignore)  -ne $null
+            }
             
-            # Hier kommt es auf ein $Result=$true an
-            GetScript = "@{Result=(Get-PSDrive -Name $($Node.DriveName) -ErrorAction Ignore) -eq `$null}" 
-            
-            SetScript = ({
-                $Username = "{0}"
-                $Password = "{1}" 
-                $DriveName = "{2}:"
-                $RemotePath = "{3}"
-                New-SmbMapping -LocalPath $DriveName -RemotePath $RemotePath -Username $Username -Password $Password
-            } -f $Node.Credential.Username, $Node.Credential.GetNetworkCredential().Password, $Node.DriveName, $Node.RemotePath)
+            # returns a hashtable with result=$true
+            GetScript = {
+                Result = (Get-PSDrive -Name $using:DriveName -ErrorAction Ignore) -eq `$null
+            }
+
+            # A Scriptblock with parameters
+            SetScript = {
+                New-SmbMapping -LocalPath $using:DriveName -RemotePath $using:RemotePath -Username $using:Username -Password $using:Password
+            }
         }
     }
-
 }
 
 $PwSec = "demo+123" | ConvertTo-SecureString -AsPlainText -Force    
-$Server1ACred = [PSCredential]::New("Administrator", $PwSec)
+$PSCred = [PSCredential]::New("Administrator", $PwSec)
 
 $ConfigData = @{
 
     AllNodes = @(
+
         @{
-            NodeName = "Server1A"
-            DriveName = "U"
-            RemotePath = "\\mobilserver2\pskurs"
-            Credential = $Server1ACred
+            NodeName = "W2016A"
+            DriveName = "P:"
+            RemotePath = "\\W2016B\Docs"
+            Credential = $PSCred
             PSDscAllowPlainTextPassword = $true
         }
     )
@@ -49,6 +61,6 @@ $ConfigData = @{
 
 cd $PSScriptRoot
 
-ScriptBeispiel -Computername Server1A -ConfigurationData $ConfigData 
+MapDriveWithScriptEx1 -ConfigurationData $ConfigData 
 
-Start-DSCConfiguration -Path ScriptBeispiel -Wait -Verbose -Credential $Server1ACred -Force
+# Start-DSCConfiguration -Path .\MapDriveWithScriptEx1 -Wait -Verbose -Credential $PSCred -Force 

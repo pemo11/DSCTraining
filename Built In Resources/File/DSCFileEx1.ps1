@@ -1,16 +1,18 @@
 <#
  .Synopsis
- Anlegen einer Profile-Skriptdatei
+ Sets up a powershell profile file for a user account
+ .Notes 
+ The name of the user account does not has to exist because only the folder structure will be created
 #>
 
-configuration ProfileTest
+configuration FileEx1
 {
-    param([String]$Username="Administrator")
-
     Import-DSCResource -ModuleName PSDesiredStateConfiguration
 
     node $AllNodes.NodeName
     {
+        $Username = $Node.Username
+
         File ProfileDir
         {
             Ensure = "Present"
@@ -34,15 +36,16 @@ $ConfigData = @{
 
     AllNodes = @(
         @{
-            NodeName = "MobilServer2"
+            NodeName = "localhost"
+            Username = "Administrator2"
             ProfileContent = "`$Host.PrivateData.ErrorBackgroundColor = 'White'"
         }
     )
 }
-ProfileTest -Username PsUser -ConfigurationData $ConfigData
 
 cd $PSScriptRoot
 
+FileEx1 -ConfigurationData $ConfigData
 
-Start-DSCConfiguration -Path ProfileTest -Wait -Verbose -Force
+Start-DSCConfiguration -Path .\FileEx1 -Wait -Verbose -Force
 

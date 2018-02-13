@@ -1,9 +1,9 @@
 <#
  .Synopsis
- Log-Eintrag schreiben per  DSC
+ Example for the local resource
 #>
 
-configuration LogTest
+configuration LogEx1
 {
     Import-DSCResource -ModuleName PSDesiredStateConfiguration
 
@@ -12,7 +12,7 @@ configuration LogTest
         Log Log1
         {
             # Erscheint im Microsoft-Windows-DSC/Analytic-Log als Teil von Message
-            Message = "Alles klar mit DSC"
+            Message = "Personal: DSC makes the world go crazy"
         }
     }
 }
@@ -20,10 +20,13 @@ configuration LogTest
 cd $PSScriptRoot
 
 
-LogTest
+LogEx1
 
-# Erst dadurch werden die Meldungen geschrieben
-# Start-DSCConfiguration -Path LogTest -Verbose -Wait
+# Activate Analytic log once and forever
+# wevtutil.exe sl "Microsoft-Windows-Dsc/Analytic" /q:true /e:true
+
+Start-DSCConfiguration -Path .\LogEx1 -Verbose -Wait -Force
 
 # DSC-Log ausgeben
-# Get-WinEvent -LogName Microsoft-Windows-DSC/Analytic -Oldest  | Select Id, TimeCreated, Message
+Get-WinEvent -LogName Microsoft-Windows-DSC/Analytic -Oldest  | 
+ Where-Object Message -match "Personal" | Select-Object -Property Id, TimeCreated, Message -First 3 | Format-List
